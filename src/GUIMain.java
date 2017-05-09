@@ -18,6 +18,8 @@ public class GUIMain extends Main {
     private static Thread worker = null;
 
     private static File[] files;
+    static private JCheckBox option_alternate_normalization;
+
     public static void main(String[] args)
     {
         SwingUtilities.invokeLater( () ->
@@ -64,6 +66,8 @@ public class GUIMain extends Main {
                     }
                 }
             };
+            
+            option_alternate_normalization = new JCheckBox("Use median instead of average (use wisely)", false);
 
             JScrollPane listPane = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
@@ -119,6 +123,8 @@ public class GUIMain extends Main {
 
             run.addActionListener((a)->
             {
+                alternate_normalization = option_alternate_normalization.isSelected();
+                
                 if(worker != null && worker.isAlive()) return;
                 worker = new Thread(() ->
                 {
@@ -184,6 +190,8 @@ public class GUIMain extends Main {
 
             row += 5;
 
+            row = adder.apply(option_alternate_normalization, row);
+
             listPane.setBounds(5, row, pane.getWidth()-10, 140);
             row += 150;
 
@@ -193,12 +201,15 @@ public class GUIMain extends Main {
             pane.add(explanation2);
 
             pane.add(input);
-            pane.add(write);
-            pane.add(doinput);
             pane.add(field_input);
-            pane.add(listPane);
-
+            pane.add(doinput);
+            
+            pane.add(write);
             pane.add(field_write);
+
+            pane.add(option_alternate_normalization);
+            
+            pane.add(listPane);
 
             pane.add(run);
             pane.add(progress);
