@@ -19,6 +19,7 @@ public class GUIMain extends Main {
 
     private static File[] files;
     static private JCheckBox option_alternate_normalization;
+    static private JCheckBox option_use_proportional_mean;
 
     public static void main(String[] args)
     {
@@ -68,6 +69,7 @@ public class GUIMain extends Main {
             };
             
             option_alternate_normalization = new JCheckBox("Use median instead of average (use wisely)", false);
+            option_use_proportional_mean = new JCheckBox("Pretend distribution isn't skewed (weakens outlier samples)", true);
 
             JScrollPane listPane = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
@@ -124,6 +126,7 @@ public class GUIMain extends Main {
             run.addActionListener((a)->
             {
                 alternate_normalization = option_alternate_normalization.isSelected();
+                proportional_mean = option_use_proportional_mean.isSelected();
                 
                 if(worker != null && worker.isAlive()) return;
                 worker = new Thread(() ->
@@ -137,25 +140,28 @@ public class GUIMain extends Main {
                             inputs.add(list.getValueAt(count, 0).toString());
                             //System.out.println(list.getValueAt(count, 0).toString());
                         }
-                        run(inputs, writer, (text, length) ->
+                        if(inputs.size() > 0)
                         {
-                            progress.setString(text);
-                            if(text.equals("Done"))
+                            run(inputs, writer, (text, length) ->
                             {
-                                progress.setIndeterminate(false);
-                                progress.setValue(0);
-                            }
-                            else if(length >= 0.0)
-                            {
-                                progress.setIndeterminate(false);
-                                progress.setMaximum(100000000);
-                                progress.setValue((int)(length*100000000));
-                            }
-                            else
-                            {
-                                progress.setIndeterminate(true);
-                            }
-                        });
+                                progress.setString(text);
+                                if(text.equals("Done"))
+                                {
+                                    progress.setIndeterminate(false);
+                                    progress.setValue(0);
+                                }
+                                else if(length >= 0.0)
+                                {
+                                    progress.setIndeterminate(false);
+                                    progress.setMaximum(100000000);
+                                    progress.setValue((int)(length*100000000));
+                                }
+                                else
+                                {
+                                    progress.setIndeterminate(true);
+                                }
+                            });
+                        }
                         writer.close();
                     }
                     catch (UnsupportedEncodingException e)
@@ -191,6 +197,7 @@ public class GUIMain extends Main {
             row += 5;
 
             row = adder.apply(option_alternate_normalization, row);
+            row = adder.apply(option_use_proportional_mean, row);
 
             listPane.setBounds(5, row, pane.getWidth()-10, 140);
             row += 150;
@@ -208,6 +215,7 @@ public class GUIMain extends Main {
             pane.add(field_write);
 
             pane.add(option_alternate_normalization);
+            pane.add(option_use_proportional_mean);
             
             pane.add(listPane);
 
