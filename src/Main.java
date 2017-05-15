@@ -16,12 +16,12 @@ import java.io.*;
 import java.util.*;
 import java.util.function.BiConsumer;
 
-import static java.lang.StrictMath.sqrt;
-
 public class Main
 {
-    static boolean alternate_normalization = false;
-    static boolean proportional_mean = true;
+    static boolean simple_average = false;
+    static boolean cropped_average = true;
+    static boolean median = false;
+    static boolean proportional_mean = false;
     static double custom_exponent = 1;
     static private class Entry
     {
@@ -42,58 +42,29 @@ public class Main
         else
             ConsoleMain.main(args);
     }
-    static private TreeMap<String, Double> merge(ArrayList<ArrayList<Entry>> collection, boolean alternate, boolean proportional, double proportion)
+    static private TreeMap<String, Double> merge(ArrayList<ArrayList<Entry>> collection)
     {
         TreeMap<String, Double> aggregation = new TreeMap<>();
         
-        if(!alternate)
+        if(simple_average || (!cropped_average && !median && !proportional_mean))
         {
-            if(!proportional)
+            Double total_tokens = 0.0;
+            for(ArrayList<Entry> list : collection)
             {
-                Double total_tokens = 0.0;
-                for(ArrayList<Entry> list : collection)
+                for(Entry entry : list)
                 {
-                    for(Entry entry : list)
-                    {
-                        total_tokens += entry.count;
-                        double count = entry.count;
-                        if(aggregation.containsKey(entry.identity))
-                            aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
-                        else
-                            aggregation.put(entry.identity, count);
-                    }
+                    total_tokens += entry.count;
+                    double count = entry.count;
+                    if(aggregation.containsKey(entry.identity))
+                        aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
+                    else
+                        aggregation.put(entry.identity, count);
                 }
-                for(String key : aggregation.descendingKeySet())
-                    aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
             }
-            else
-            {
-                System.out.printf("proportion: %f\n", proportion);
-                System.out.printf("1.0/proportion: %f\n", 1.0/proportion);
-                for(ArrayList<Entry> list : collection)
-                {
-                    for(Entry entry : list)
-                    {
-                        double count = Math.pow(entry.count, proportion);
-                        
-                        if(aggregation.containsKey(entry.identity))
-                            aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
-                        else
-                            aggregation.put(entry.identity, count);
-                    }
-                }
-                for(String key : aggregation.descendingKeySet())
-                    aggregation.replace(key, Math.pow(aggregation.get(key), 1.0/proportion));
-                
-                Double total_tokens = 0.0;
-                for(Map.Entry<String, Double> entry : aggregation.entrySet())
-                    total_tokens += entry.getValue();
-                
-                for(String key : aggregation.descendingKeySet())
-                    aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
-            }
+            for(String key : aggregation.descendingKeySet())
+                aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
         }
-        else
+        else if(cropped_average || median)
         {
             HashMap<String, ArrayList<Double>> terms = new HashMap<>();
             for(ArrayList<Entry> list : collection)
@@ -116,43 +87,63 @@ public class Main
                 while(counts.size() < collection.size())
                     counts.add(0.0);
                 counts.sort((a,b)->a>b?1:a<b?-1:0);
-                Double tokens;
-                if(counts.size()%2 == 1)
-                    tokens = counts.get(counts.size()/2);
+                if(cropped_average)
+                {
+                    if(counts.size() >= 3)
+                    {
+                        counts.remove(0);
+                        counts.remove(counts.size()-1);
+                    }
+                    
+                    Double tokens = 0.0;
+                    for(Double d : counts)
+                        tokens += d;
+                    tokens /= counts.size();
+                    
+                    aggregation.put(entry.getKey(), tokens);
+                    total_tokens += tokens;
+                }
                 else
-                    tokens = (counts.get(counts.size()/2)+counts.get(counts.size()/2-1))/2;
-                aggregation.put(entry.getKey(), tokens);
-                total_tokens += tokens;
+                {
+                    Double tokens;
+                    if(counts.size()%2 == 1)
+                        tokens = counts.get(counts.size()/2);
+                    else
+                        tokens = (counts.get(counts.size()/2)+counts.get(counts.size()/2-1))/2;
+                    aggregation.put(entry.getKey(), tokens);
+                    total_tokens += tokens;
+                }
+                
             }
+            for(String key : aggregation.descendingKeySet())
+                aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
+        }
+        else if(proportional_mean)
+        {
+            for(ArrayList<Entry> list : collection)
+            {
+                for(Entry entry : list)
+                {
+                    double count = Math.pow(entry.count, custom_exponent);
+                    
+                    if(aggregation.containsKey(entry.identity))
+                        aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
+                    else
+                        aggregation.put(entry.identity, count);
+                }
+            }
+            for(String key : aggregation.descendingKeySet())
+                aggregation.replace(key, Math.pow(aggregation.get(key), 1.0/custom_exponent));
+            
+            Double total_tokens = 0.0;
+            for(Map.Entry<String, Double> entry : aggregation.entrySet())
+                total_tokens += entry.getValue();
+            
             for(String key : aggregation.descendingKeySet())
                 aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
         }
         
         return aggregation;
-    }
-    static private double get_skew(ArrayList<Entry> mapping)
-    {
-        //double fifty_percentile = 0.0;
-        //if(mapping.size() % 2 == 0)
-        //{
-        //    fifty_percentile += mapping.get(mapping.size()/2).count/2;
-        //    fifty_percentile += mapping.get(mapping.size()/2-1).count/2;
-        //}
-        //else
-        //{
-        //    fifty_percentile += mapping.get(mapping.size()/2-1).count;
-        //}
-        //// normalize against max
-        //fifty_percentile /= mapping.get(0).count;
-        double average = 0.0;
-        for(Entry entry : mapping)
-            average += entry.count;
-        average /= mapping.size();
-        average /= mapping.get(0).count;
-        // percentile to power
-        double power = Math.log(average)/Math.log(0.5);
-        power = 1/power;
-        return power;
     }
     static void run(ArrayList<String> input_names, BufferedWriter out, BiConsumer<String, Double> update) {
         ArrayList<ArrayList<Entry>> collection = new ArrayList<>();
@@ -189,41 +180,18 @@ public class Main
                 list.add(new Entry((double)tokens, identity));
             }
             
-            if(!proportional_mean || alternate_normalization)
-            {
-                long total_tokens = 0;
-                for(Entry entry : list)
-                    total_tokens += entry.count;
-                for(Entry entry : list)
-                    entry.count *= 1000000/(double)total_tokens;
-            }
-            else
-            {
-                // normalizing to start with
-                double total_tokens = 0;
-                for(Entry entry : list)
-                    total_tokens += entry.count;
-                
-                for(Entry entry : list)
-                    entry.count *= 1000000/total_tokens;
-            }
+            long total_tokens = 0;
+            for(Entry entry : list)
+                total_tokens += entry.count;
+            for(Entry entry : list)
+                entry.count *= 1000000/(double)total_tokens;
+            
             collection.add(list);
         }
         
         update.accept("Aggregating collected lists...", -1.0);
         
-        TreeMap<String, Double> aggregation;
-        if(alternate_normalization)
-            aggregation = merge(collection, true, false, 0.0);
-        else
-        {
-            aggregation = merge(collection, false, false, 0.0);
-            
-            if(proportional_mean)
-            {
-                aggregation = merge(collection, false, true, custom_exponent);
-            }
-        }
+        TreeMap<String, Double> aggregation = merge(collection);
         
         //double normalization_factor = 1000000/(double)total_tokens;
         //for(String key : aggregation.descendingKeySet())
