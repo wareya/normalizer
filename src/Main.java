@@ -74,8 +74,7 @@ public class Main
                 {
                     for(Entry entry : list)
                     {
-                        //double count = Math.pow(entry.count, proportion);
-                        double count = entry.count;
+                        double count = Math.pow(entry.count, proportion);
                         
                         if(aggregation.containsKey(entry.identity))
                             aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
@@ -157,11 +156,8 @@ public class Main
     }
     static void run(ArrayList<String> input_names, BufferedWriter out, BiConsumer<String, Double> update) {
         ArrayList<ArrayList<Entry>> collection = new ArrayList<>();
-        ArrayList<ArrayList<Entry>> secondary_collection = new ArrayList<>();
         
         update.accept("Processing inputs files...", -1.0);
-        
-        ArrayList<Double> skews = new ArrayList<>();
         
         for(String filename : input_names)
         {
@@ -210,25 +206,6 @@ public class Main
                 
                 for(Entry entry : list)
                     entry.count *= 1000000/total_tokens;
-                
-                // copy list
-                secondary_collection.add(new ArrayList<>(list));
-                
-                // unskew
-                double skew = get_skew(list);
-                skews.add(skew);
-                
-                for(Entry entry : list)
-                    entry.count = Math.pow(entry.count, skew);
-                
-                // normalize for real
-                total_tokens = 0;
-                for(Entry entry : list)
-                    total_tokens += entry.count;
-                
-                for(Entry entry : list)
-                    entry.count *= 1000000/total_tokens;
-                
             }
             collection.add(list);
         }
@@ -244,35 +221,6 @@ public class Main
             
             if(proportional_mean)
             {
-                ArrayList<Entry> mapping = new ArrayList<>();
-                
-                for(Map.Entry<String, Double> entry : aggregation.entrySet())
-                    mapping.add(new Entry(entry.getValue(), entry.getKey()));
-                mapping.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
-                
-                //System.out.println("True skew: "+1/get_skew(mapping)); // needs unskewing in collection code to be commented out
-                // the following: geometric mean
-                //double average_power = 1.0;
-                //for(double skew : skews)
-                //{
-                //    System.out.println("Skew: "+1/skew);
-                //    average_power *= skew;
-                //}
-                //average_power = Math.pow(average_power, 1.0/skews.size());
-                
-                // messes with the distribution too much, what about emulating the distribution of a "simple average" collection instead
-                //TreeMap<String, Double> secondary_aggregation = merge(collection, false, false, 0.0);
-                //
-                //ArrayList<Entry> secondary_mapping = new ArrayList<>();
-                //
-                //for(Map.Entry<String, Double> entry : aggregation.entrySet())
-                //    secondary_mapping.add(new Entry(entry.getValue(), entry.getKey()));
-                //secondary_mapping.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
-                //
-                //double power = get_skew(secondary_mapping);
-                
-                // jesus christ how horrifying. just make an option for it.
-                
                 aggregation = merge(collection, false, true, custom_exponent);
             }
         }

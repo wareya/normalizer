@@ -71,7 +71,7 @@ public class GUIMain extends Main {
             
             option_alternate_normalization = new JCheckBox("Use median instead of average (use wisely)", false);
             option_use_proportional_mean = new JCheckBox("Pretend distribution isn't skewed; final exponent:", true);
-            option_custom_exponent = new JTextField("0.14");
+            option_custom_exponent = new JTextField("0.2");
 
             JScrollPane listPane = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
