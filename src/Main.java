@@ -22,6 +22,7 @@ public class Main
 {
     static boolean alternate_normalization = false;
     static boolean proportional_mean = true;
+    static double custom_exponent = 1;
     static private class Entry
     {
         Double count;
@@ -73,7 +74,8 @@ public class Main
                 {
                     for(Entry entry : list)
                     {
-                        double count = Math.pow(entry.count, proportion);
+                        //double count = Math.pow(entry.count, proportion);
+                        double count = entry.count;
                         
                         if(aggregation.containsKey(entry.identity))
                             aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
@@ -128,11 +130,38 @@ public class Main
         }
         
         return aggregation;
-    } 
+    }
+    static private double get_skew(ArrayList<Entry> mapping)
+    {
+        //double fifty_percentile = 0.0;
+        //if(mapping.size() % 2 == 0)
+        //{
+        //    fifty_percentile += mapping.get(mapping.size()/2).count/2;
+        //    fifty_percentile += mapping.get(mapping.size()/2-1).count/2;
+        //}
+        //else
+        //{
+        //    fifty_percentile += mapping.get(mapping.size()/2-1).count;
+        //}
+        //// normalize against max
+        //fifty_percentile /= mapping.get(0).count;
+        double average = 0.0;
+        for(Entry entry : mapping)
+            average += entry.count;
+        average /= mapping.size();
+        average /= mapping.get(0).count;
+        // percentile to power
+        double power = Math.log(average)/Math.log(0.5);
+        power = 1/power;
+        return power;
+    }
     static void run(ArrayList<String> input_names, BufferedWriter out, BiConsumer<String, Double> update) {
         ArrayList<ArrayList<Entry>> collection = new ArrayList<>();
+        ArrayList<ArrayList<Entry>> secondary_collection = new ArrayList<>();
         
         update.accept("Processing inputs files...", -1.0);
+        
+        ArrayList<Double> skews = new ArrayList<>();
         
         for(String filename : input_names)
         {
@@ -153,7 +182,6 @@ public class Main
                 update.accept("Failed to open an input file as UTf-8.", 0.0);
                 return;
             }
-            Integer total_tokens = 0; 
             
             while(file.hasNext())
             {
@@ -162,14 +190,46 @@ public class Main
                 Integer tokens = Integer.valueOf(entry.split("\t", 2)[0]);
                 String identity = entry.split("\t", 2)[1];
                 
-                total_tokens += tokens;
-                
                 list.add(new Entry((double)tokens, identity));
             }
             
-            for(Entry entry : list)
-                entry.count *= 1000000/(double)total_tokens;
-            
+            if(!proportional_mean || alternate_normalization)
+            {
+                long total_tokens = 0;
+                for(Entry entry : list)
+                    total_tokens += entry.count;
+                for(Entry entry : list)
+                    entry.count *= 1000000/(double)total_tokens;
+            }
+            else
+            {
+                // normalizing to start with
+                double total_tokens = 0;
+                for(Entry entry : list)
+                    total_tokens += entry.count;
+                
+                for(Entry entry : list)
+                    entry.count *= 1000000/total_tokens;
+                
+                // copy list
+                secondary_collection.add(new ArrayList<>(list));
+                
+                // unskew
+                double skew = get_skew(list);
+                skews.add(skew);
+                
+                for(Entry entry : list)
+                    entry.count = Math.pow(entry.count, skew);
+                
+                // normalize for real
+                total_tokens = 0;
+                for(Entry entry : list)
+                    total_tokens += entry.count;
+                
+                for(Entry entry : list)
+                    entry.count *= 1000000/total_tokens;
+                
+            }
             collection.add(list);
         }
         
@@ -190,23 +250,30 @@ public class Main
                     mapping.add(new Entry(entry.getValue(), entry.getKey()));
                 mapping.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
                 
-                double fifty_percentile = 0.0;
-                if(mapping.size() % 2 == 0)
-                {
-                    fifty_percentile += mapping.get(mapping.size()/2).count/2;
-                    fifty_percentile += mapping.get(mapping.size()/2-1).count/2;
-                }
-                else
-                {
-                    fifty_percentile += mapping.get(mapping.size()/2-1).count;
-                }
-                // normalize against max
-                fifty_percentile /= mapping.get(0).count;
-                // percentile to power
-                double power = Math.log(fifty_percentile)/Math.log(0.5);
-                power = 1/power;
+                //System.out.println("True skew: "+1/get_skew(mapping)); // needs unskewing in collection code to be commented out
+                // the following: geometric mean
+                //double average_power = 1.0;
+                //for(double skew : skews)
+                //{
+                //    System.out.println("Skew: "+1/skew);
+                //    average_power *= skew;
+                //}
+                //average_power = Math.pow(average_power, 1.0/skews.size());
                 
-                aggregation = merge(collection, false, true, power);
+                // messes with the distribution too much, what about emulating the distribution of a "simple average" collection instead
+                //TreeMap<String, Double> secondary_aggregation = merge(collection, false, false, 0.0);
+                //
+                //ArrayList<Entry> secondary_mapping = new ArrayList<>();
+                //
+                //for(Map.Entry<String, Double> entry : aggregation.entrySet())
+                //    secondary_mapping.add(new Entry(entry.getValue(), entry.getKey()));
+                //secondary_mapping.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
+                //
+                //double power = get_skew(secondary_mapping);
+                
+                // jesus christ how horrifying. just make an option for it.
+                
+                aggregation = merge(collection, false, true, custom_exponent);
             }
         }
         

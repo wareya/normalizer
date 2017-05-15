@@ -20,6 +20,7 @@ public class GUIMain extends Main {
     private static File[] files;
     static private JCheckBox option_alternate_normalization;
     static private JCheckBox option_use_proportional_mean;
+    static private JTextField option_custom_exponent;
 
     public static void main(String[] args)
     {
@@ -69,7 +70,8 @@ public class GUIMain extends Main {
             };
             
             option_alternate_normalization = new JCheckBox("Use median instead of average (use wisely)", false);
-            option_use_proportional_mean = new JCheckBox("Pretend distribution isn't skewed (weakens outlier samples)", true);
+            option_use_proportional_mean = new JCheckBox("Pretend distribution isn't skewed; final exponent:", true);
+            option_custom_exponent = new JTextField("0.14");
 
             JScrollPane listPane = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
@@ -116,7 +118,7 @@ public class GUIMain extends Main {
                             list.addRow(new String[]{f.getAbsolutePath()});
                 }
                 else if(!field_input.getText().equals(""))
-                    list.addRow(new String[]{});
+                    list.addRow(new String[]{field_input.getText()});
                 files = null;
                 field_input.setEditable(true);
                 field_input.setText("");
@@ -127,6 +129,9 @@ public class GUIMain extends Main {
             {
                 alternate_normalization = option_alternate_normalization.isSelected();
                 proportional_mean = option_use_proportional_mean.isSelected();
+                
+                if(option_custom_exponent.getText() != null && !option_custom_exponent.getText().equals(""))
+                    custom_exponent = Double.valueOf(option_custom_exponent.getText());
                 
                 if(worker != null && worker.isAlive()) return;
                 worker = new Thread(() ->
@@ -197,6 +202,7 @@ public class GUIMain extends Main {
             row += 5;
 
             row = adder.apply(option_alternate_normalization, row);
+            option_custom_exponent.setBounds(option_use_proportional_mean.getPreferredSize().width+10, row, 40, 20);
             row = adder.apply(option_use_proportional_mean, row);
 
             listPane.setBounds(5, row, pane.getWidth()-10, 140);
@@ -215,6 +221,7 @@ public class GUIMain extends Main {
             pane.add(field_write);
 
             pane.add(option_alternate_normalization);
+            pane.add(option_custom_exponent);
             pane.add(option_use_proportional_mean);
             
             pane.add(listPane);
