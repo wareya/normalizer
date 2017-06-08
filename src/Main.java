@@ -12,6 +12,8 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
  */
 
+import com.sun.deploy.util.ArrayUtil;
+
 import java.io.*;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -20,17 +22,46 @@ public class Main
 {
     static boolean simple_average = false;
     static boolean cropped_average = true;
+    static boolean more_cropped_average = true;
     static boolean median = false;
-    static boolean proportional_mean = false;
-    static double custom_exponent = 1;
+    
+    static int identity_length = 11;
+    
+    static private class Fact
+    {
+        Integer count;
+        String identity;
+        Fact(Integer count, String identity)
+        {
+            this.count = count;
+            this.identity = identity;
+        }
+    }
+    
     static private class Entry
     {
         Double count;
         String identity;
+        HashMap<String, Integer> spellings;
         Entry(Double count, String identity)
         {
             this.count = count;
             this.identity = identity;
+            this.spellings = new HashMap<>();
+        }
+        String spellingsAsString()
+        {
+            ArrayList<Fact> sorted_spellings = new ArrayList<>();
+            for(HashMap.Entry<String, Integer> spelling : spellings.entrySet())
+                sorted_spellings.add(new Fact(spelling.getValue(), spelling.getKey()));
+                
+            sorted_spellings.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
+            
+            String r = "";
+            for(Fact spelling : sorted_spellings)
+                r += spelling.identity + "\t" + spelling.count + "\t";
+            
+            return r;
         }
     }
     public static void main(String[] args)
@@ -42,11 +73,12 @@ public class Main
         else
             ConsoleMain.main(args);
     }
-    static private TreeMap<String, Double> merge(ArrayList<ArrayList<Entry>> collection)
+    static private ArrayList<Entry> merge(ArrayList<ArrayList<Entry>> collection)
     {
         TreeMap<String, Double> aggregation = new TreeMap<>();
+        TreeMap<String, HashMap<String, Integer>> aggregation2 = new TreeMap<>();
         
-        if(simple_average || (!cropped_average && !median && !proportional_mean))
+        if(simple_average || (!cropped_average && !median && !more_cropped_average))
         {
             Double total_tokens = 0.0;
             for(ArrayList<Entry> list : collection)
@@ -64,9 +96,10 @@ public class Main
             for(String key : aggregation.descendingKeySet())
                 aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
         }
-        else if(cropped_average || median)
+        else
         {
             HashMap<String, ArrayList<Double>> terms = new HashMap<>();
+            HashMap<String, ArrayList<HashMap<String, Double>>> spellings = new HashMap<>();
             for(ArrayList<Entry> list : collection)
             {
                 for(Entry entry : list)
@@ -103,6 +136,25 @@ public class Main
                     aggregation.put(entry.getKey(), tokens);
                     total_tokens += tokens;
                 }
+                else if (more_cropped_average)
+                {
+                    int target_size = counts.size()/2;
+                    if(target_size < 2) target_size = 2;
+                    
+                    while(counts.size() > target_size)
+                    {
+                        counts.remove(0);
+                        counts.remove(counts.size()-1);
+                    }
+                    
+                    Double tokens = 0.0;
+                    for(Double d : counts)
+                        tokens += d;
+                    tokens /= counts.size();
+                    
+                    aggregation.put(entry.getKey(), tokens);
+                    total_tokens += tokens;
+                }
                 else
                 {
                     Double tokens;
@@ -118,32 +170,38 @@ public class Main
             for(String key : aggregation.descendingKeySet())
                 aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
         }
-        else if(proportional_mean)
+        
+        for(ArrayList<Entry> list : collection)
         {
-            for(ArrayList<Entry> list : collection)
+            for(Entry entry : list)
             {
-                for(Entry entry : list)
+                if(aggregation2.containsKey(entry.identity))
                 {
-                    double count = Math.pow(entry.count, custom_exponent);
-                    
-                    if(aggregation.containsKey(entry.identity))
-                        aggregation.replace(entry.identity, aggregation.get(entry.identity)+count);
-                    else
-                        aggregation.put(entry.identity, count);
+                    HashMap<String, Integer> my_word = aggregation2.get(entry.identity);
+                    for(HashMap.Entry<String, Integer> spelling : entry.spellings.entrySet())
+                    {
+                        if(my_word.containsKey(spelling.getKey()))
+                            my_word.replace(spelling.getKey(), my_word.get(spelling.getKey()) + spelling.getValue()); 
+                    }
                 }
-            }
-            for(String key : aggregation.descendingKeySet())
-                aggregation.replace(key, Math.pow(aggregation.get(key), 1.0/custom_exponent));
-            
-            Double total_tokens = 0.0;
-            for(Map.Entry<String, Double> entry : aggregation.entrySet())
-                total_tokens += entry.getValue();
-            
-            for(String key : aggregation.descendingKeySet())
-                aggregation.replace(key, aggregation.get(key)*1000000/total_tokens);
+                else
+                {
+                    HashMap<String, Integer> my_word = new HashMap<>(entry.spellings);
+                    aggregation2.put(entry.identity, my_word);
+                }
+            } 
         }
         
-        return aggregation;
+        ArrayList<Entry> ret = new ArrayList<>(); 
+        
+        for(String key : aggregation.descendingKeySet())
+        {
+            Entry new_entry = new Entry(aggregation.get(key), key);
+            new_entry.spellings = new HashMap<>(aggregation2.get(key));
+            ret.add(new_entry);
+        }
+        
+        return ret;
     }
     static void run(ArrayList<String> input_names, BufferedWriter out, BiConsumer<String, Double> update) {
         ArrayList<ArrayList<Entry>> collection = new ArrayList<>();
@@ -166,7 +224,7 @@ public class Main
             }
             catch (UnsupportedEncodingException e)
             {
-                update.accept("Failed to open an input file as UTf-8.", 0.0);
+                update.accept("Failed to open an input file as UTF-8.", 0.0);
                 return;
             }
             
@@ -174,10 +232,20 @@ public class Main
             {
                 String entry = file.next();
                 
-                Integer tokens = Integer.valueOf(entry.split("\t", 2)[0]);
-                String identity = entry.split("\t", 2)[1];
+                ArrayList<String> row = new ArrayList<>(Arrays.asList(entry.split("\t")));
                 
-                list.add(new Entry((double)tokens, identity));
+                Integer tokens = Integer.valueOf(row.get(0));
+                String identity = String.join("\t", row.subList(1, Math.min(identity_length, row.size())));
+                
+                HashMap<String, Integer> spellings = new HashMap<>();
+                
+                for(int i = identity_length; i+1 < row.size(); i += 2)
+                    spellings.put(row.get(i), Integer.parseInt(row.get(i+1)));
+                
+                Entry newentry = new Entry((double)tokens, identity);
+                newentry.spellings = spellings; 
+                
+                list.add(newentry);
             }
             
             long total_tokens = 0;
@@ -191,18 +259,14 @@ public class Main
         
         update.accept("Aggregating collected lists...", -1.0);
         
-        TreeMap<String, Double> aggregation = merge(collection);
-        
         //double normalization_factor = 1000000/(double)total_tokens;
         //for(String key : aggregation.descendingKeySet())
         //    aggregation.replace(key, aggregation.get(key)*normalization_factor);
             
+        
+        ArrayList<Entry> mapping = merge(collection);
+        
         update.accept("Sorting aggregated list...", -1.0);
-        
-        ArrayList<Entry> mapping = new ArrayList<>();
-        
-        for(Map.Entry<String, Double> entry : aggregation.entrySet())
-            mapping.add(new Entry(entry.getValue(), entry.getKey()));
         mapping.sort((a, b) -> (b.count - a.count > 0)?1:(b.count - a.count < 0)?-1:0);
         
         update.accept("Writing aggregated list to file...", -1.0);
@@ -210,7 +274,7 @@ public class Main
         for(Entry entry : mapping)
         {
             if(entry.count != 0.0)
-                println(out, String.format("%.10f", entry.count) + "\t" + entry.identity);
+                println(out, String.format("%.10f", entry.count) + "\t" + entry.identity + "\t" + entry.spellingsAsString());
         }
         
         update.accept("Done", -1.0);

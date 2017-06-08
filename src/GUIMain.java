@@ -18,11 +18,10 @@ public class GUIMain extends Main {
     private static Thread worker = null;
 
     private static File[] files;
-    static private JCheckBox option_simple_average;
-    static private JCheckBox option_cropped_average;
-    static private JCheckBox option_use_median;
-    static private JCheckBox option_use_proportional_mean;
-    static private JTextField option_custom_exponent;
+    static private JRadioButton option_simple_average;
+    static private JRadioButton option_cropped_average;
+    static private JRadioButton option_more_cropped_average;
+    static private JRadioButton option_use_median;
 
     public static void main(String[] args)
     {
@@ -53,6 +52,9 @@ public class GUIMain extends Main {
             JButton write = new JButton("Output");
             JTextField field_write = new JTextField("");
 
+            JLabel column = new JLabel("Column of first spelling (0-indexed)");
+            JTextField field_column = new JTextField("11");
+
             DefaultTableModel list = new DefaultTableModel();
             list.addColumn("Filename");
 
@@ -71,11 +73,16 @@ public class GUIMain extends Main {
                 }
             };
             
-            option_simple_average = new JCheckBox("Simple average (pretend these are radio buttons!)", false);
-            option_cropped_average = new JCheckBox("Remove outliers (wants 5+ input lists or it's just median)", true);
-            option_use_median = new JCheckBox("Use median instead of average (use carefully)", false);
-            option_use_proportional_mean = new JCheckBox("Skew distributions by exponent before averaging:", false);
-            option_custom_exponent = new JTextField("0.2");
+            option_simple_average = new JRadioButton("Simple average", false);
+            option_cropped_average = new JRadioButton("Remove outliers", true);
+            option_more_cropped_average = new JRadioButton("Remove more outliers", false);
+            option_use_median = new JRadioButton("Remove as many outliers as possible (median)", false);
+            
+            ButtonGroup button_group = new ButtonGroup();
+            button_group.add(option_simple_average);
+            button_group.add(option_cropped_average);
+            button_group.add(option_more_cropped_average);
+            button_group.add(option_use_median);
 
             JScrollPane listPane = new JScrollPane(table, ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
@@ -131,15 +138,25 @@ public class GUIMain extends Main {
 
             run.addActionListener((a)->
             {
+                if(worker != null && worker.isAlive()) return;
+                
                 simple_average = option_simple_average.isSelected();
                 cropped_average = option_cropped_average.isSelected();
+                more_cropped_average = option_more_cropped_average.isSelected();
                 median = option_use_median.isSelected();
-                proportional_mean = option_use_proportional_mean.isSelected();
                 
-                if(option_custom_exponent.getText() != null && !option_custom_exponent.getText().equals(""))
-                    custom_exponent = Double.valueOf(option_custom_exponent.getText());
+                try
+                {
+                    identity_length = Integer.parseInt(field_column.getText().trim());
+                }
+                catch(NumberFormatException e)
+                {
+                    progress.setIndeterminate(false);
+                    progress.setValue(0);
+                    progress.setString("Column of first spelling is invalid");
+                    return;
+                }
                 
-                if(worker != null && worker.isAlive()) return;
                 worker = new Thread(() ->
                 {
                     try
@@ -205,13 +222,14 @@ public class GUIMain extends Main {
             input.setBounds(5, row, 65, 20); field_input.setBounds(75, row, pane.getWidth()-75-10-20-5, 20); doinput.setBounds(pane.getWidth()-20-10, row, 20, 20); row += 25;
             write.setBounds(5, row, 65, 20); field_write.setBounds(75, row, pane.getWidth()-75-10, 20); row += 25;
 
-            row += 5;
-
             row = adder.apply(option_simple_average, row);
             row = adder.apply(option_cropped_average, row);
+            row = adder.apply(option_more_cropped_average, row);
             row = adder.apply(option_use_median, row);
-            option_custom_exponent.setBounds(option_use_proportional_mean.getPreferredSize().width+10, row, 40, 20);
-            row = adder.apply(option_use_proportional_mean, row);
+            
+            row += 5;
+            field_column.setBounds(5, row, 25, 20); column.setBounds(35, row, pane.getWidth()-35-5, 20); row += 25;
+            row += 5;
 
             listPane.setBounds(5, row, pane.getWidth()-10, 140);
             row += 150;
@@ -230,9 +248,11 @@ public class GUIMain extends Main {
 
             pane.add(option_simple_average);
             pane.add(option_cropped_average);
+            pane.add(option_more_cropped_average);
             pane.add(option_use_median);
-            pane.add(option_custom_exponent);
-            pane.add(option_use_proportional_mean);
+            
+            pane.add(column);
+            pane.add(field_column);
             
             pane.add(listPane);
 
