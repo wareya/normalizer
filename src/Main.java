@@ -25,7 +25,11 @@ public class Main
     static boolean more_cropped_average = true;
     static boolean median = false;
     
+    static boolean lexeme = false;
+    
     static int identity_length = 11;
+    
+    static int spelling_length = 2;
     
     static private class Fact
     {
@@ -239,8 +243,8 @@ public class Main
                 
                 HashMap<String, Integer> spellings = new HashMap<>();
                 
-                for(int i = identity_length; i+1 < row.size(); i += 2)
-                    spellings.put(row.get(i), Integer.parseInt(row.get(i+1)));
+                for(int i = identity_length; i+1 < row.size(); i += spelling_length)
+                    spellings.put(String.join("\t", row.subList(i, i+spelling_length-1)), Integer.parseInt(row.get(i+spelling_length-1)));
                 
                 Entry newentry = new Entry((double)tokens, identity);
                 newentry.spellings = spellings; 

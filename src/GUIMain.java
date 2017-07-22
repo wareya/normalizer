@@ -53,7 +53,10 @@ public class GUIMain extends Main {
             JTextField field_write = new JTextField("");
 
             JLabel column = new JLabel("Column of first spelling (0-indexed)");
-            JTextField field_column = new JTextField("11");
+            JTextField field_column = new JTextField("8");
+
+            JLabel fields = new JLabel("Fields per spelling (including count)");
+            JTextField field_fields = new JTextField("5");
 
             DefaultTableModel list = new DefaultTableModel();
             list.addColumn("Filename");
@@ -157,6 +160,18 @@ public class GUIMain extends Main {
                     return;
                 }
                 
+                try
+                {
+                    spelling_length = Integer.parseInt(field_fields.getText().trim());
+                }
+                catch(NumberFormatException e)
+                {
+                    progress.setIndeterminate(false);
+                    progress.setValue(0);
+                    progress.setString("Number of spelling fields is invalid");
+                    return;
+                }
+                
                 worker = new Thread(() ->
                 {
                     try
@@ -230,6 +245,8 @@ public class GUIMain extends Main {
             row += 5;
             field_column.setBounds(5, row, 25, 20); column.setBounds(35, row, pane.getWidth()-35-5, 20); row += 25;
             row += 5;
+            field_fields.setBounds(5, row, 25, 20); fields.setBounds(35, row, pane.getWidth()-35-5, 20); row += 25;
+            row += 5;
 
             listPane.setBounds(5, row, pane.getWidth()-10, 140);
             row += 150;
@@ -253,6 +270,9 @@ public class GUIMain extends Main {
             
             pane.add(column);
             pane.add(field_column);
+            
+            pane.add(fields);
+            pane.add(field_fields);
             
             pane.add(listPane);
 
