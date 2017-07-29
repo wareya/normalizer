@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.function.BiFunction;
 
 import static java.lang.Math.min;
+import static javax.swing.SwingConstants.BOTTOM;
 
 /*
  * Licensed under a public domain‐like license. See Main.java for license text.
@@ -81,6 +82,9 @@ public class GUIMain extends Main {
             option_more_cropped_average = new JRadioButton("Remove more outliers", false);
             option_use_median = new JRadioButton("Remove as many outliers as possible (median)", false);
             
+            JLabel label_crop_amount = new JLabel("Amount of cropping (this option only)");
+            JTextField field_crop_amount = new JTextField("1");
+            
             ButtonGroup button_group = new ButtonGroup();
             button_group.add(option_simple_average);
             button_group.add(option_cropped_average);
@@ -147,6 +151,21 @@ public class GUIMain extends Main {
                 cropped_average = option_cropped_average.isSelected();
                 more_cropped_average = option_more_cropped_average.isSelected();
                 median = option_use_median.isSelected();
+                
+                if(cropped_average)
+                {
+                    try
+                    {
+                        crop_amount = Integer.parseInt(field_crop_amount.getText().trim());
+                    }
+                    catch(NumberFormatException e)
+                    {
+                        progress.setIndeterminate(false);
+                        progress.setValue(0);
+                        progress.setString("Number of elements to crop is invalid");
+                        return;
+                    }
+                }
                 
                 try
                 {
@@ -238,6 +257,8 @@ public class GUIMain extends Main {
             write.setBounds(5, row, 65, 20); field_write.setBounds(75, row, pane.getWidth()-75-10, 20); row += 25;
 
             row = adder.apply(option_simple_average, row);
+            field_crop_amount.setBounds(option_cropped_average.getPreferredSize().width + 10, row, 25, field_crop_amount.getPreferredSize().height);
+            label_crop_amount.setBounds(option_cropped_average.getPreferredSize().width + 40, row, 200, option_simple_average.getPreferredSize().height);
             row = adder.apply(option_cropped_average, row);
             row = adder.apply(option_more_cropped_average, row);
             row = adder.apply(option_use_median, row);
@@ -264,6 +285,8 @@ public class GUIMain extends Main {
             pane.add(field_write);
 
             pane.add(option_simple_average);
+            pane.add(label_crop_amount);
+            pane.add(field_crop_amount);
             pane.add(option_cropped_average);
             pane.add(option_more_cropped_average);
             pane.add(option_use_median);

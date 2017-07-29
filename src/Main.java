@@ -31,6 +31,8 @@ public class Main
     
     static int spelling_length = 2;
     
+    static int crop_amount = 1;
+    
     static private class Fact
     {
         Integer count;
@@ -128,8 +130,11 @@ public class Main
                 {
                     if(counts.size() >= 3)
                     {
-                        counts.remove(0);
-                        counts.remove(counts.size()-1);
+                        for(int asdf = 0; asdf < crop_amount; asdf++)
+                        {
+                            counts.remove(0);
+                            counts.remove(counts.size()-1);
+                        }
                     }
                     
                     Double tokens = 0.0;
